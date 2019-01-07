@@ -62,6 +62,7 @@ do
 done
 
 
+wait
 i=0
 
 
