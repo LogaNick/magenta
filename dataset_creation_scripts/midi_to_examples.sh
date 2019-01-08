@@ -1,109 +1,85 @@
 #!/bin/bash
 
-# Usage: ./midi_to_example.sh parent_dir_of_midis desired_output_dir
-# -----------------------------------------------------------------------------
-
-if (( $# < 3 )); then
-	echo "Usage: $0 <num processess> <dir_of_midis> <output_dir> "
-	exit 1
-elif (( $1 < 1 )); then
-	echo "Error: Must specify at least 1 job"
+if [[ $# < 3 ]]; then
+	echo "Usage: $0 <num_proc> <midi_dir> <example_dir> "
 	exit 1
 fi
 
-PROCESSES=$1
-INPUT_DIRECTORY=$2
-OUTPUT_DIRECTORY=$3
-TEMP_DIR=~/temp_script_files
-TEMP_DIR_IN=$TEMP_DIR/all_inputs
-TEMP_DIR_OUT=$TEMP_DIR/all_outputs
-TEMP_DIR_OUT_NS=$TEMP_DIR_OUT/all_notesequences
-TEMP_DIR_OUT_EX=$TEMP_DIR_OUT/all_sequence_examples
+num_proc=$1
+input_dir=$2
+output_dir=$3
+temp_dir=~/temp_script_files
+temp_dir_in=$temp_dir/all_inputs
+temp_dir_out=$temp_dir/all_outputs
+temp_dir_out_ns=$temp_dir_out/all_notesequences
+temp_dir_out_ex=$temp_dir_out/all_sequence_examples
 
-# Setup environment
+cd $HOME/magenta
 source activate magenta
-cd ~/magenta
 
-# Build executables
-bazel build --jobs=${PROCESSES} magenta/scripts:convert_dir_to_note_sequences
-bazel build --jobs=${PROCESSES} magenta/models/performance_rnn:performance_rnn_create_dataset
+bazel build --jobs=${num_proc} magenta/scripts:convert_dir_to_note_sequences
+bazel build --jobs=${num_proc} magenta/models/performance_rnn:performance_rnn_create_dataset
 
-# Make directories
-mkdir $TEMP_DIR
-mkdir $TEMP_DIR_IN
-mkdir $TEMP_DIR_OUT
-mkdir $TEMP_DIR_OUT_NS 
-mkdir $TEMP_DIR_OUT_EX
+mkdir $temp_dir
+mkdir $temp_dir_in
+mkdir $temp_dir_out
+mkdir $temp_dir_out_ns 
+mkdir $temp_dir_out_ex
 
-declare i=0
-
-# Create n temporary directories
-while (( $i < $PROCESSES  )); do
-	mkdir $TEMP_DIR_IN/inputs${i}
-
+i=0
+while (( $i < $num_proc  )); do
+	mkdir $temp_dir_in/inputs${i}
 	(( i++ ))
 done
 
-# Disperse hardlinks to all MIDIs evenly between the temp fils
+# Disperse MIDIs via hardlinks.
 i=0
-
-for FILE in $INPUT_DIRECTORY/*.mid
-do
-  filename="${FILE%.*}"
-	ln $FILE $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/`basename "$FILE"`
-  ln ${filename}.json $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/`basename ${filename}.json`
-  # filename=$(basename -- "$FILE")
-  # extension="${filename##*.}"
-  # filename="${FILE%.*}"
-  # echo "${filename}.json"
-  # echo $(basename ${filename}.json .json)
-
+for midi_file in $input_dir/*.mid; do
+  filename="${midi_file%.*}"
+  # Link MIDI to temp.
+	ln $midi_file $temp_dir_in/inputs$(( i % num_proc ))/`basename "$midi_file"`
+  # Link JSON metadata to temp.
+  # ln ${filename}.json $temp_dir_in/inputs$(( i % num_proc ))/`basename ${filename}.json`
 	(( i++ ))
 done
 
-
-wait
+# Convert MIDIs in each temp to notesequences.
 i=0
-
-
-# Convert MIDIs in each temp file to notesequence TF-records
 echo "Creating notesequences . . ."
-while (( $i < $PROCESSES )); do
-	./dataset_creation_scripts/midi_to_tfrecord.sh $TEMP_DIR_IN/inputs${i} $TEMP_DIR_OUT_NS/notesequences${i}.tfrecord
-
+while (( $i < $num_proc )); do
+  ./bazel-bin/magenta/scripts/convert_dir_to_note_sequences \
+    --input_dir=$temp_dir_in/inputs${i} \
+    --output_file=$temp_dir_out_ns/notesequences${i}.tfrecord \
+    --recursive
 	(( i++ ))
 done
 
+# Convert notesequences to sequence examples.
 i=0
-
-# Convert notesequences to sequence examples
 echo "Creating sequenceexamples . . ."
-while (( $i < $PROCESSES )); do
-
-	# Note: this runs in the background
-	./dataset_creation_scripts/tfrecord_to_examples.sh $TEMP_DIR_OUT_NS/notesequences${i}.tfrecord $TEMP_DIR_OUT_EX/sequenceexamples${i}&
-
+while (( $i < $num_proc )); do
+  ./bazel-bin/magenta/models/performance_rnn/performance_rnn_create_dataset \
+    --config=tempo_conditioned_performance_with_dynamics \
+    --input=$temp_dir_out_ns/notesequences${i}.tfrecord \
+    --output_dir=$temp_dir_out_ex/sequenceexamples${i} \
+    --eval_ratio=0.10 &
 	(( i++ ))
 done
-
 wait
 
-# Concatenate all the TF records into one
 echo "Concatenating sequenceexamples . . ."
 
-# Copy the first training and eval tf records to destination dir
-cp -r $TEMP_DIR_OUT_EX/sequenceexamples0/ $OUTPUT_DIRECTORY
+touch $output_dir/training_performances.tfrecord \
+      $output_dir/eval_performances.tfrecord
 
-i=1
-
-while (( $i < $PROCESSES )); do
-
-	cat $TEMP_DIR_OUT_EX/sequenceexamples${i}/training_performances.tfrecord >> $OUTPUT_DIRECTORY/training_performances.tfrecord
-	cat $TEMP_DIR_OUT_EX/sequenceexamples${i}/eval_performances.tfrecord >> $OUTPUT_DIRECTORY/eval_performances.tfrecord
-
+i=0
+while (( $i < $num_proc )); do
+  cat $temp_dir_out_ex/sequenceexamples${i}/training_performances.tfrecord \
+    >> $output_dir/training_performances.tfrecord
+  cat $temp_dir_out_ex/sequenceexamples${i}/eval_performances.tfrecord \
+    >> $output_dir/eval_performances.tfrecord
 	(( i++ ))
 done
 
-# Clean up
-rm -r $TEMP_DIR
-# rm ~/magenta/nohup.out
+# Clean up.
+rm -r $temp_dir

@@ -127,6 +127,11 @@ def extract_metadata(midi_file_path):
   file_name, _ = os.path.splitext(midi_file_path)
   file_name = file_name + '.json'
 
+  # Temporary workaround for optional metadata. If the metadata file exists
+  # at the same path, it is extracted. Otherwise, ignored.
+  if not os.path.exists(file_name):
+    return None
+
   with open(file_name) as f:
     metadata = json.load(f)
 
