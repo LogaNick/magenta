@@ -943,9 +943,6 @@ class TempoControlSignal(PerformanceControlSignal):
     steps = performance.steps
     histogram_sequence = [[0]] * len(steps)
 
-    if not performance.tempo_flag:
-      return histogram_sequence
-
     for i, event in enumerate(performance):
       time_shift = steps[i]
       indexes = [i for i, val in enumerate(steps) if val == time_shift]
