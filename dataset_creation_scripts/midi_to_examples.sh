@@ -30,20 +30,20 @@ bazel build --jobs=${PROCESSES} magenta/scripts:convert_dir_to_note_sequences
 bazel build --jobs=${PROCESSES} magenta/models/performance_rnn:performance_rnn_create_dataset
 
 # Make directories
-mkdir $TEMP_DIR
-mkdir $TEMP_DIR_IN
-mkdir $TEMP_DIR_OUT
-mkdir $TEMP_DIR_OUT_NS 
-mkdir $TEMP_DIR_OUT_EX
+mkdir -p $TEMP_DIR
+mkdir -p $TEMP_DIR_IN
+mkdir -p $TEMP_DIR_OUT
+mkdir -p $TEMP_DIR_OUT_NS 
+mkdir -p $TEMP_DIR_OUT_EX
 
 # Make a directory for output
-mkdir $OUTPUT_DIRECTORY/sequenceexamples
+mkdir -p $OUTPUT_DIRECTORY/sequenceexamples
 
 declare i=0
 
 # Create n temporary directories
 while (( $i < $PROCESSES  )); do
-	mkdir $TEMP_DIR_IN/inputs${i}
+	mkdir -p $TEMP_DIR_IN/inputs${i}
 
 	(( i++ ))
 done
@@ -54,25 +54,16 @@ FILE_NUM=0
 
 for FILE in $INPUT_DIRECTORY/*
 do
-	if [ -d "${FILE}" ]; then
-		for FILE_ in $FILE/*.mid
-		do
-			NAME=$( basename "$FILE_" .mid ) 
-                	ln ${FILE}/${NAME}.mid $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/${FILE_NUM}.mid
-                	ln ${FILE}/${NAME}.json $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/${FILE_NUM}.json
-                	(( i++ ))
-			(( FILE_NUM++ ))
-		done
-	elif [ ${FILE: -4} == ".json" ]; then
-        	continue # Skip text files
+        if [ ${FILE: -5} == ".json" ]; then
+        	continue # Skip json files
 	else
 		NAME=$( basename "$FILE" .mid )
-        	ln ${INPUT_DIRECTORY}/${NAME}.mid $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/${FILE_NUM}.mid
-        	ln ${INPUT_DIRECTORY}/${NAME}.json $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/${FILE_NUM}.json
+        	ln ${INPUT_DIRECTORY}${NAME}.mid $TEMP_DIR_IN/inputs$(( i % PROCESSES ))
+        	ln ${INPUT_DIRECTORY}${NAME}.json $TEMP_DIR_IN/inputs$(( i % PROCESSES ))
 		(( i++ ))
-		(( FILE_NUM++ ))
 	fi
 done
+
 
 echo $FILE_NUM MIDIs have been identified . . .
 
