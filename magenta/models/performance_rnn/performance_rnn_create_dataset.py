@@ -48,6 +48,8 @@ tf.app.flags.DEFINE_float('eval_ratio', 0.1,
 tf.app.flags.DEFINE_string('log', 'INFO',
                            'The threshold for what messages will be logged '
                            'DEBUG, INFO, WARN, ERROR, or FATAL.')
+tf.app.flags.DEFINE_integer('num_threads', 1,
+                            'Number of worker threads to run in parallel.')
 
 
 class EncoderPipeline(pipeline.Pipeline):
@@ -75,12 +77,12 @@ class EncoderPipeline(pipeline.Pipeline):
       control_sequences = []
       for control in self._control_signals:
         control_sequences.append(control.extract(performance))
-      control_sequence = zip(*control_sequences)
+      control_sequence = list(zip(*control_sequences)) # Python 3 compatible
       if self._optional_conditioning:
         # Create two copies, one with and one without conditioning.
         encoded = [
             self._encoder_decoder.encode(
-                zip([disable] * len(control_sequence), control_sequence),
+                list(zip([disable] * len(control_sequence), control_sequence)),
                 performance)
             for disable in [False, True]]
       else:
@@ -171,6 +173,8 @@ def get_pipeline(config, min_events, max_events, eval_ratio):
 
 def main(unused_argv):
   tf.logging.set_verbosity(FLAGS.log)
+
+  # TODO: Read composer master list?
 
   pipeline_instance = get_pipeline(
       min_events=32,

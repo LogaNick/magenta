@@ -49,7 +49,14 @@ i=0
 
 for FILE in $INPUT_DIRECTORY/*.mid
 do
+  filename="${FILE%.*}"
 	ln $FILE $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/`basename "$FILE"`
+  ln ${filename}.json $TEMP_DIR_IN/inputs$(( i % PROCESSES ))/`basename ${filename}.json`
+  # filename=$(basename -- "$FILE")
+  # extension="${filename##*.}"
+  # filename="${FILE%.*}"
+  # echo "${filename}.json"
+  # echo $(basename ${filename}.json .json)
 
 	(( i++ ))
 done
@@ -98,10 +105,4 @@ done
 
 # Clean up
 rm -r $TEMP_DIR
-rm ~/magenta/nohup.out
-
-
-
-
-
-
+# rm ~/magenta/nohup.out

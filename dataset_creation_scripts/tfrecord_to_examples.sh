@@ -8,7 +8,7 @@ fi
 
 NOTESEQUENCES_FILE=$1
 OUTPUT_DIRECTORY=$2
-CONFIG=performance
+CONFIG=dataset_conditioned_performance_with_dynamics
 
 cd ~/magenta
 source activate magenta

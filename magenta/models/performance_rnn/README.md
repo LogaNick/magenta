@@ -163,3 +163,93 @@ performance_rnn_generate \
   --bundle_file=/tmp/performance_rnn.mag \
   --save_generator_bundle
 ```
+
+## Additional Conditioning Configurations
+
+* composer_conditioned_performance_with_dynamics
+* signature_conditioned_performance_with_dynamics
+* time_place_conditioned_performance_with_dynamics
+* global_position_conditioned_performance_with_dynamics
+
+Ensure that the ```CONFIG``` shell variable is set appropriately during note sequence, dataset and performance generation as well as during training.
+
+### Composer Conditioning
+A given performance in the training set has one or more composers. This configuration conditions the model on these composers. At generation time, a histogram representing a desired distribution across the set of composers is provided as input. A simple case would be a one-hot specifying that the desired composer of influence will be 'Bach' for example.
+
+#### Generating sample performances:
+Ensure that the composer master list has been created during dataset generation and is correctly saved in the ```/tmp``` directory. 
+
+```
+performance_rnn_generate \
+--run_dir=/tmp/performance_rnn/logdir/run1 \
+--output_dir=/tmp/performance_rnn/generated \
+--config=${CONFIG} \
+--num_outputs=10 \
+--num_steps=3000 \
+--composer_class_histogram="[1,0,0,...,0,0]"
+```
+
+Note that the ```composer_class_histogram``` must have dimensions that match the composer master list. The value in each place is meant to represent the fraction of desired 'influence' that the corresponding composer will have on the generated performance.
+
+### Time-Signature-Numerator Conditioning
+Expert labeled time signature numerators are associated with each performance. These are used to create a histogram control signal with bins representing [uncertainty,2,3] time. Time signature numerators are translated to histograms during dataset creation in the following way:
+
+2 --> [0.05, 0.95, 0.00]
+3 --> [0.05, 0.00, 0.95]
+4 --> [0.05, 0.95, 0.00]
+5 --> [0.70, 0.15, 0.15]
+6 --> [0.10, 0.10, 0.80]
+7 --> [0.70, 0.20, 0.10]
+8 --> [0.05, 0.95, 0.00]
+9 --> [0.05, 0.00, 0.95]
+10 --> [0.70, 0.15, 0.15]
+11 --> [1.00, 0.00, 0.00]
+12 --> [0.20, 0.40, 0.40]
+None or Other --> [1.00, 0.00, 0.00]
+
+#### Generating sample performances:
+
+```
+performance_rnn_generate \
+--run_dir=/tmp/performance_rnn/logdir/run1 \
+--output_dir=/tmp/performance_rnn/generated \
+--config=${CONFIG} \
+--num_outputs=10 \
+--num_steps=3000 \
+--signature_class_histogram="[0,1,0]"
+```
+
+The dimensions in the ```signature_class_histogram``` are [uncertainty, 2, 3] as above. The shown example generates a performance that is conditioned upon having a time signature numerator equivalent to 2.
+
+### Time-and-Place Conditioning
+The latitude, longitude and year of birth of the composer are provided. The conditioning vector has the form: [yob, latitude, longitude] where theses values are normalized as follows:
+
+```
+SCALE_LAT, SHIFT_LAT = 10, 50
+SCALE_LON, SHIFT_LON = 10, 15
+SCALE_YEAR, SHIFT_YEAR = 200, 1800
+
+yob <-- (yob - SHIFT_YEAR) / SCALE_YEAR
+lat <-- (lat - SHIFT_LAT) / SCALE_LAT
+lon <-- (lon - SHIFT_LON) / SCALE_LON
+```
+
+Note: Currently, this vector must be normalized by hand when it is passed as an argument during sample generation
+
+#### Generating sample performances:
+```
+performance_rnn_generate \
+--run_dir=/tmp/performance_rnn/logdir/run1 \
+--output_dir=/tmp/performance_rnn/generated \
+--config=${CONFIG} \
+--num_outputs=10 \
+--num_steps=3000 \
+--time_place_vector="[0.5,0.5,0.5]"
+```
+
+### Global-Position Conditioning
+Time from start and time till end are used as control signals throughout generation.
+
+TODO: make this more specific
+
+#### Generating sample performances:

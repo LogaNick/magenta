@@ -2,3 +2,5 @@
 /bazel-*
 .ipynb_checkpoints/
 *.swp
+nohup*.out
+.vscode/*

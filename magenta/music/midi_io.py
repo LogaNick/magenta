@@ -48,7 +48,7 @@ class MIDIConversionError(Exception):
   pass
 
 
-def midi_to_sequence_proto(midi_data):
+def midi_to_sequence_proto(midi_data, metadata=None):
   """Convert MIDI file contents to a tensorflow.magenta.NoteSequence proto.
 
   Converts a MIDI file encoded as a string into a
@@ -59,6 +59,7 @@ def midi_to_sequence_proto(midi_data):
   Args:
     midi_data: A string containing the contents of a MIDI file or populated
         pretty_midi.PrettyMIDI object.
+    meta_data: A dictionary containing metadata for the given MIDI
 
   Returns:
     A tensorflow.magenta.NoteSequence proto.
@@ -90,6 +91,21 @@ def midi_to_sequence_proto(midi_data):
   sequence.source_info.encoding_type = (
       music_pb2.NoteSequence.SourceInfo.MIDI)
 
+  # Populate metadata.
+  if metadata is not None:
+    # sequence.sequence_metadata.title = metadata['title']
+    # sequence.sequence_metadata.artist = metadata['performer']
+    # TODO: include genre
+    # sequence.sequence_metadata.genre = metadata['genre']
+    # sequence.sequence_metadata.composers.extend(str(metadata['composers']))
+    # sequence.sequence_metadata.sig_numerator = str(metadata['signature_numerator'])
+    # sequence.sequence_metadata.yob = str(metadata['year_of_birth'])
+    # sequence.sequence_metadata.lat = str(metadata['latitude'])
+    # sequence.sequence_metadata.lon = str(metadata['longitude'])
+    sequence.sequence_metadata.dataset = metadata['dataset']
+    sequence.sequence_metadata.tempo_flag = metadata['tempo_flag']
+
+    
   # Populate time signatures.
   for midi_time in midi.time_signature_changes:
     time_signature = sequence.time_signatures.add()
