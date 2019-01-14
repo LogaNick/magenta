@@ -24,6 +24,7 @@ import magenta
 from magenta.models.shared import events_rnn_model
 from magenta.music.performance_lib import PerformanceEvent
 
+
 # State for constructing a time-varying control sequence. Keeps track of the
 # current event position and time step in the generated performance, to allow
 # the control sequence to vary with clock time.
@@ -107,6 +108,7 @@ class PerformanceRnnModel(events_rnn_model.EventSequenceRnnModel):
 
     return self._evaluate_log_likelihood(
         [sequence], control_events=control_events)[0]
+
 
 def _extend_control_events(control_signal_fns, disable_conditioning_fn,
                            control_events, performance, control_state):
@@ -265,115 +267,6 @@ default_configs = {
                 window_size_seconds=5.0)
         ]),
 
-    'composer_conditioned_performance_with_dynamics': PerformanceRnnConfig(
-        magenta.protobuf.generator_pb2.GeneratorDetails(
-            id='composer_conditioned_performance_with_dynamics',
-            description='Composer-histogram-conditioned Performance RNN'),
-        magenta.music.OneHotEventSequenceEncoderDecoder(
-            magenta.music.PerformanceOneHotEncoding(
-                num_velocity_bins=32)),
-        tf.contrib.training.HParams(
-            batch_size=64,
-            rnn_layer_sizes=[512, 512, 512],
-            dropout_keep_prob=1.0,
-            clip_norm=3,
-            learning_rate=0.001),
-        num_velocity_bins=32,
-        control_signals=[
-            magenta.music.ComposerHistogramPerformanceControlSignal(
-                composers=composer_master_list)
-        ]),
-
-    'signature_conditioned_performance_with_dynamics': PerformanceRnnConfig(
-        magenta.protobuf.generator_pb2.GeneratorDetails(
-            id='signature_conditioned_performance_with_dynamics',
-            description='Signature-histogram-conditioned Performance RNN'),
-        magenta.music.OneHotEventSequenceEncoderDecoder(
-            magenta.music.PerformanceOneHotEncoding(
-                num_velocity_bins=32)),
-        tf.contrib.training.HParams(
-            batch_size=64,
-            rnn_layer_sizes=[512, 512, 512],
-            dropout_keep_prob=1.0,
-            clip_norm=3,
-            learning_rate=0.001),
-        num_velocity_bins=32,
-        control_signals=[
-            magenta.music.SignatureHistogramPerformanceControlSignal()
-        ]),
-
-    'time_place_conditioned_performance_with_dynamics': PerformanceRnnConfig(
-        magenta.protobuf.generator_pb2.GeneratorDetails(
-            id='time_place_conditioned_performance_with_dynamics',
-            description='Time-and-place-conditioned Performance RNN'),
-        magenta.music.OneHotEventSequenceEncoderDecoder(
-            magenta.music.PerformanceOneHotEncoding(
-                num_velocity_bins=32)),
-        tf.contrib.training.HParams(
-            batch_size=64,
-            rnn_layer_sizes=[512, 512, 512],
-            dropout_keep_prob=1.0,
-            clip_norm=3,
-            learning_rate=0.001),
-        num_velocity_bins=32,
-        control_signals=[
-            magenta.music.TimePlacePerformanceControlSignal()
-        ]),
-    
-    'global_position_conditioned_performance_with_dynamics': PerformanceRnnConfig(
-        magenta.protobuf.generator_pb2.GeneratorDetails(
-            id='global_position_conditioned_performance_with_dynamics',
-            description='Distance-from-start-and-end-conditioned Performance RNN'),
-        magenta.music.OneHotEventSequenceEncoderDecoder(
-            magenta.music.PerformanceOneHotEncoding(
-                num_velocity_bins=32)),
-        tf.contrib.training.HParams(
-            batch_size=64,
-            rnn_layer_sizes=[512, 512, 512],
-            dropout_keep_prob=1.0,
-            clip_norm=3,
-            learning_rate=0.001),
-        num_velocity_bins=32,
-        control_signals=[
-            magenta.music.GlobalPositionPerformanceControlSignal()
-        ]),
-
-  'tempo_conditioned_performance_with_dynamics': PerformanceRnnConfig(
-        magenta.protobuf.generator_pb2.GeneratorDetails(
-            id='tempo_conditioned_performance_with_dynamics',
-            description='Tempo conditioned Performance RNN'),
-        magenta.music.OneHotEventSequenceEncoderDecoder(
-            magenta.music.PerformanceOneHotEncoding(
-                num_velocity_bins=32)),
-        tf.contrib.training.HParams(
-            batch_size=64,
-            rnn_layer_sizes=[512, 512, 512],
-            dropout_keep_prob=1.0,
-            clip_norm=3,
-            learning_rate=0.001),
-        num_velocity_bins=32,
-        control_signals=[
-          magenta.music.TempoControlSignal()
-        ]),
-
-  'dataset_conditioned_performance_with_dynamics': PerformanceRnnConfig(
-        magenta.protobuf.generator_pb2.GeneratorDetails(
-            id='dataset_conditioned_performance_with_dynamics',
-            description='Dataset conditioned Performance RNN'),
-        magenta.music.OneHotEventSequenceEncoderDecoder(
-            magenta.music.PerformanceOneHotEncoding(
-                num_velocity_bins=32)),
-        tf.contrib.training.HParams(
-            batch_size=64,
-            rnn_layer_sizes=[512, 512, 512],
-            dropout_keep_prob=1.0,
-            clip_norm=3,
-            learning_rate=0.001),
-        num_velocity_bins=32,
-        control_signals=[
-          magenta.music.DatasetControlSignal()
-        ])
-
     'multiconditioned_performance_with_dynamics': PerformanceRnnConfig(
         magenta.protobuf.generator_pb2.GeneratorDetails(
             id='multiconditioned_performance_with_dynamics',
@@ -417,5 +310,41 @@ default_configs = {
             magenta.music.PitchHistogramPerformanceControlSignal(
                 window_size_seconds=5.0)
         ],
-        optional_conditioning=True)
+        optional_conditioning=True),
+
+  'tempo_conditioned_performance_with_dynamics': PerformanceRnnConfig(
+        magenta.protobuf.generator_pb2.GeneratorDetails(
+            id='tempo_conditioned_performance_with_dynamics',
+            description='Tempo conditioned Performance RNN'),
+        magenta.music.OneHotEventSequenceEncoderDecoder(
+            magenta.music.PerformanceOneHotEncoding(
+                num_velocity_bins=32)),
+        tf.contrib.training.HParams(
+            batch_size=64,
+            rnn_layer_sizes=[512, 512, 512],
+            dropout_keep_prob=1.0,
+            clip_norm=3,
+            learning_rate=0.001),
+        num_velocity_bins=32,
+        control_signals=[
+          magenta.music.TempoControlSignal()
+        ]),
+
+  'dataset_conditioned_performance_with_dynamics': PerformanceRnnConfig(
+        magenta.protobuf.generator_pb2.GeneratorDetails(
+            id='dataset_conditioned_performance_with_dynamics',
+            description='Dataset conditioned Performance RNN'),
+        magenta.music.OneHotEventSequenceEncoderDecoder(
+            magenta.music.PerformanceOneHotEncoding(
+                num_velocity_bins=32)),
+        tf.contrib.training.HParams(
+            batch_size=64,
+            rnn_layer_sizes=[512, 512, 512],
+            dropout_keep_prob=1.0,
+            clip_norm=3,
+            learning_rate=0.001),
+        num_velocity_bins=32,
+        control_signals=[
+          magenta.music.DatasetControlSignal()
+        ])
 }

@@ -42,6 +42,7 @@ DEFAULT_MAX_SHIFT_QUARTERS = 4
 
 DEFAULT_PROGRAM = 0
 
+
 class PerformanceEvent(object):
   """Class for storing events in a performance."""
 
@@ -90,8 +91,7 @@ class BasePerformance(events_lib.EventSequence):
   __metaclass__ = abc.ABCMeta
 
   def __init__(self, start_step, num_velocity_bins, max_shift_steps,
-               program=None, is_drum=None, composers=None, sig_numerator=None,
-               yob=None, lat=None, lon=None, dataset=None, tempo_flag=None):
+               program=None, is_drum=None):
     """Construct a BasePerformance.
 
     Args:
@@ -102,11 +102,6 @@ class BasePerformance(events_lib.EventSequence):
       program: MIDI program used for this performance, or None if not specified.
       is_drum: Whether or not this performance consists of drums, or None if not
           specified.
-      composers: List of composers
-      sig_numerator: Numerator of the time
-      dataset: The dataset the performance was obtained from
-      tempo_flag: Flag indicating if a tempo conditioning signal is paired
-        with the performance.
 
     Raises:
       ValueError: If `num_velocity_bins` is larger than the number of MIDI
@@ -121,13 +116,6 @@ class BasePerformance(events_lib.EventSequence):
     self._max_shift_steps = max_shift_steps
     self._program = program
     self._is_drum = is_drum
-    self._composers = composers
-    self._sig_numerator = sig_numerator
-    self._yob = yob
-    self._lat = lat
-    self._lon = lon
-    self._dataset = dataset
-    self._tempo_flag = tempo_flag
 
   @property
   def start_step(self):
@@ -145,34 +133,6 @@ class BasePerformance(events_lib.EventSequence):
   def is_drum(self):
     return self._is_drum
 
-  @property
-  def composers(self):
-    return self._composers
-
-  @property
-  def sig_numerator(self):
-    return self._sig_numerator
-
-  @property
-  def yob(self):
-    return self._yob
-
-  @property
-  def lat(self):
-    return self._lat
-
-  @property
-  def lon(self):
-    return self._lon
-
-  @property
-  def dataset(self):
-    return self._dataset
-
-  @property
-  def tempo_flag(self):
-    return self._tempo_flag
-  
   def _append_steps(self, num_steps):
     """Adds steps to the end of the sequence."""
     if (self._events and
@@ -540,8 +500,7 @@ class Performance(BasePerformance):
   def __init__(self, quantized_sequence=None, steps_per_second=None,
                start_step=0, num_velocity_bins=0,
                max_shift_steps=DEFAULT_MAX_SHIFT_STEPS, instrument=None,
-               program=None, is_drum=None, composers=None, sig_numerator=None,
-               yob=None, lat=None, lon=None, dataset=None, tempo_flag=None):
+               program=None, is_drum=None):
     """Construct a Performance.
 
     Either quantized_sequence or steps_per_second should be supplied.
@@ -562,11 +521,6 @@ class Performance(BasePerformance):
           Ignored if `quantized_sequence` is provided.
       is_drum: Whether or not this performance consists of drums, or None if not
           specified. Ignored if `quantized_sequence` is provided.
-      composers: List of composers
-      sig_numerator: Numerator of the time signature
-      dataset: The dataset the performance was obtained from
-      tempo_flag: Flag indicating if a tempo conditioning signal is paired with
-        the performance.
 
     Raises:
       ValueError: If both or neither of `quantized_sequence` or
@@ -593,22 +547,12 @@ class Performance(BasePerformance):
       self._steps_per_second = steps_per_second
       self._events = []
 
-    #TODO(ncmeade): To be implemented correctly later.
-    self.tempos = quantized_sequence.tempos
-
     super(Performance, self).__init__(
         start_step=start_step,
         num_velocity_bins=num_velocity_bins,
         max_shift_steps=max_shift_steps,
         program=program,
-        is_drum=is_drum,
-        composers=composers,
-        sig_numerator=sig_numerator,
-        yob=yob,
-        lat=lat,
-        lon=lon,
-        dataset=dataset,
-        tempo_flag=tempo_flag)
+        is_drum=is_drum)
 
   @property
   def steps_per_second(self):
@@ -643,14 +587,14 @@ class Performance(BasePerformance):
         program=program,
         max_note_duration=max_note_duration)
 
+
 class MetricPerformance(BasePerformance):
   """Performance with quarter-note relative timing."""
 
   def __init__(self, quantized_sequence=None, steps_per_quarter=None,
                start_step=0, num_velocity_bins=0,
                max_shift_quarters=DEFAULT_MAX_SHIFT_QUARTERS, instrument=None,
-               program=None, is_drum=None, composers=None, sig_numerator=None,
-               yob=None, lat=None, lon=None, dataset=None, tempo_flag=None):
+               program=None, is_drum=None):
     """Construct a MetricPerformance.
 
     Either quantized_sequence or steps_per_quarter should be supplied.
@@ -672,9 +616,6 @@ class MetricPerformance(BasePerformance):
           Ignored if `quantized_sequence` is provided.
       is_drum: Whether or not this performance consists of drums, or None if not
           specified. Ignored if `quantized_sequence` is provided.
-      dataset: The dataset the performance was obtained from.
-      tempo_flag: Flag indicating if a tempo conditioning signal is paired
-        with the performance.
 
     Raises:
       ValueError: If both or neither of `quantized_sequence` or
@@ -707,14 +648,7 @@ class MetricPerformance(BasePerformance):
         num_velocity_bins=num_velocity_bins,
         max_shift_steps=self._steps_per_quarter * max_shift_quarters,
         program=program,
-        is_drum=is_drum,
-        composers=composers,
-        sig_numerator=sig_numerator,
-        yob=yob,
-        lat=lat,
-        lon=lon,
-        dataset=dataset,
-        tempo_flag=tempo_flag)
+        is_drum=is_drum)
 
   @property
   def steps_per_quarter(self):
@@ -819,25 +753,11 @@ def extract_performances(
     if sequences_lib.is_absolute_quantized_sequence(quantized_sequence):
       performance = Performance(quantized_sequence, start_step=start_step,
                                 num_velocity_bins=num_velocity_bins,
-                                instrument=instrument,
-                                composers=quantized_sequence.sequence_metadata.composers,
-                                sig_numerator=quantized_sequence.sequence_metadata.sig_numerator,
-                                yob=quantized_sequence.sequence_metadata.yob,
-                                lat=quantized_sequence.sequence_metadata.lat,
-                                lon=quantized_sequence.sequence_metadata.lon,
-                                dataset=quantized_sequence.sequence_metadata.dataset,
-                                tempo_flag=quantized_sequence.sequence_metadata.tempo_flag)
+                                instrument=instrument)
     else:
       performance = MetricPerformance(quantized_sequence, start_step=start_step,
                                       num_velocity_bins=num_velocity_bins,
-                                      instrument=instrument,
-                                      composers=quantized_sequence.sequence_metadata.composers,
-                                      sig_numerator=quantized_sequence.sequence_metadata.sig_numerator,
-                                      yob=quantized_sequence.sequence_metadata.yob,
-                                      lat=quantized_sequence.sequence_metadata.lat,
-                                      lon=quantized_sequence.sequence_metadata.lon,
-                                      dataset=quantized_sequence.sequence_metadata.dataset,
-                                      tempo_flag=quantized_sequence.sequence_metadata.tempo_flag)
+                                      instrument=instrument)
 
     if (max_steps_truncate is not None and
         performance.num_steps > max_steps_truncate):
