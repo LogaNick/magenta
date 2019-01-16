@@ -49,7 +49,6 @@ tf.app.flags.DEFINE_string('log', 'INFO',
                            'The threshold for what messages will be logged '
                            'DEBUG, INFO, WARN, ERROR, or FATAL.')
 
-
 class EncoderPipeline(pipeline.Pipeline):
   """A Pipeline that converts performances to a model specific encoding."""
 
@@ -127,10 +126,10 @@ def get_pipeline(config, min_events, max_events, eval_ratio):
     A pipeline.Pipeline instance.
   """
   # Stretch by -5%, -2.5%, 0%, 2.5%, and 5%.
-  stretch_factors = [0.95, 0.975, 1.0, 1.025, 1.05]
+  stretch_factors = [1.0]
 
   # Transpose no more than a major third.
-  transposition_range = range(-3, 4)
+  transposition_range = range(0, 1)
 
   partitioner = pipelines_common.RandomPartition(
       music_pb2.NoteSequence,
