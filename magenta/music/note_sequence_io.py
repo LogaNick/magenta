@@ -40,7 +40,6 @@ def generate_note_sequence_id(filename, collection_name, source_type):
   return '/id/%s/%s/%s' % (
       source_type.lower(), collection_name, filename_fingerprint.hexdigest())
 
-
 def note_sequence_record_iterator(path):
   """An iterator that reads and parses NoteSequence protos from a TFRecord file.
 
@@ -68,7 +67,6 @@ class NoteSequenceRecordWriter(tf.python_io.TFRecordWriter):
   @@write
   @@close
   """
-
   def write(self, note_sequence):
     """Serializes a NoteSequence proto and writes it to the file.
 

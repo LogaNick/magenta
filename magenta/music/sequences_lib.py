@@ -285,6 +285,7 @@ def _extract_subsequences(sequence, split_times, sustain_control_number=64):
 
   # Set subsequence info for all subsequences.
   for subsequence, start_time in zip(subsequences, split_times[:-1]):
+    subsequence.subsequence_info.source_total_time = sequence.total_time
     subsequence.subsequence_info.start_time_offset = start_time
     subsequence.subsequence_info.end_time_offset = (
         sequence.total_time - start_time - subsequence.total_time)

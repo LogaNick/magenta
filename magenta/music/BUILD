@@ -54,6 +54,7 @@ py_library(
         ":sequence_generator_bundle",
         ":sequences_lib",
         ":testing_lib",
+        ":generation_lib",
     ],
 )
 
@@ -760,5 +761,14 @@ py_test(
         "//magenta/common:testing_lib",
         "//magenta/protobuf:music_py_pb2",
         # tensorflow dep
+    ],
+)
+
+py_library(
+    name = "generation_lib",
+    srcs = ["generation_lib.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+      # dep
     ],
 )

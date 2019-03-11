@@ -58,6 +58,7 @@ import magenta.music.sequence_generator
 import magenta.music.sequence_generator_bundle
 import magenta.music.sequences_lib
 import magenta.music.testing_lib
+import magenta.music.generation_lib
 import magenta.pipelines.dag_pipeline
 import magenta.pipelines.drum_pipelines
 import magenta.pipelines.lead_sheet_pipelines

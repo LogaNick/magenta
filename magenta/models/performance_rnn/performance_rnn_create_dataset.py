@@ -49,7 +49,6 @@ tf.app.flags.DEFINE_string('log', 'INFO',
                            'The threshold for what messages will be logged '
                            'DEBUG, INFO, WARN, ERROR, or FATAL.')
 
-
 class EncoderPipeline(pipeline.Pipeline):
   """A Pipeline that converts performances to a model specific encoding."""
 
@@ -75,12 +74,12 @@ class EncoderPipeline(pipeline.Pipeline):
       control_sequences = []
       for control in self._control_signals:
         control_sequences.append(control.extract(performance))
-      control_sequence = zip(*control_sequences)
+      control_sequence = list(zip(*control_sequences)) # Python 3 compatible
       if self._optional_conditioning:
         # Create two copies, one with and one without conditioning.
         encoded = [
             self._encoder_decoder.encode(
-                zip([disable] * len(control_sequence), control_sequence),
+                list(zip([disable] * len(control_sequence), control_sequence)),
                 performance)
             for disable in [False, True]]
       else:

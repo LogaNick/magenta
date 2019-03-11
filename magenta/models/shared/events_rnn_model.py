@@ -247,6 +247,7 @@ class EventSequenceRnnModel(mm.BaseModel):
 
   def _generate_events(self, num_steps, primer_events, temperature=1.0,
                        beam_size=1, branch_factor=1, steps_per_iteration=1,
+                       beam_temperature=0.0,
                        control_events=None, control_state=None,
                        extend_control_events_callback=(
                            _extend_control_events_default),
@@ -265,6 +266,10 @@ class EventSequenceRnnModel(mm.BaseModel):
       branch_factor: An integer, beam search branch factor to use.
       steps_per_iteration: An integer, number of steps to take per beam search
           iteration.
+      beam_temperature: A float specifying how much to divide log-likelihoods
+          by before computing the softmax during beam search. Set to 0.0 to
+          pick the top-k samples instead of probabilistically choosing which
+          beams to keep.
       control_events: A sequence of control events upon which to condition the
           generation. If not None, the encoder/decoder should be a
           ConditionalEventSequenceEncoderDecoder, and the control events will be
@@ -329,6 +334,8 @@ class EventSequenceRnnModel(mm.BaseModel):
       inputs = self._config.encoder_decoder.get_inputs_batch(
           event_sequences, full_length=True)
 
+    generation_state = mm.GenerationState()
+    modify_events_callback = generation_state.callback
     if modify_events_callback:
       # Modify event sequences and inputs for first step after primer.
       modify_events_callback(
@@ -358,7 +365,8 @@ class EventSequenceRnnModel(mm.BaseModel):
         num_steps=num_steps - len(primer_events),
         beam_size=beam_size,
         branch_factor=branch_factor,
-        steps_per_iteration=steps_per_iteration)
+        steps_per_iteration=steps_per_iteration,
+        temperature=beam_temperature)
 
     tf.logging.info('Beam search yields sequence with log-likelihood: %f ',
                     loglik)

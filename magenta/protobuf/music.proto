@@ -97,6 +97,7 @@ message NoteSequence {
   // Sequence metadata.
   SequenceMetadata sequence_metadata = 19;
 
+
   // Next tag: 15
   message Note {
     // MIDI pitch; see en.wikipedia.org/wiki/MIDI_Tuning_Standard for details.
@@ -370,6 +371,8 @@ message NoteSequence {
     // Time in seconds from the end of this sequence to the end of the source
     // sequence.
     double end_time_offset = 2;
+    // Total time in seconds of the source sequence.
+    double source_total_time = 3;
   }
 
   // Information about a section within a piece.
@@ -416,4 +419,28 @@ message SequenceMetadata {
 
   // Composer of the sequece. Some pieces have multiple composers.
   repeated string composers = 4;
+
+  // Time signature numerator
+  string sig_numerator = 5;
+
+  // Year of birth of composer
+  string yob = 6;
+
+  // Latitude of composers location
+  string lat = 7;
+
+  // Longitude of composers location
+  string lon = 8;
+
+  // The dataset the sample was obtained from
+  string dataset = 9;
+
+  // If the piece has an accompanying tempo conditioning signal
+  int32 tempo_flag = 10;
+
+  // If the piece has an accompanying tempo conditioning signal
+  string key_signature = 11;
+
+  // Tempo keywords
+  repeated string keywords = 12;
 }

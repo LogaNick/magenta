@@ -21,6 +21,16 @@ import collections
 import copy
 import heapq
 
+import numpy as np
+try:
+    from scipy.special import softmax
+except Exception as e:
+    def softmax(x, axis=None):
+        x_max = np.amax(x, axis=axis, keepdims=True)
+        a = np.exp(x - x_max)
+        s = np.sum(a, axis=axis, keepdims=True)
+        return a / s
+
 
 # A beam entry containing a) the current sequence, b) a "state" containing any
 # information needed to extend the sequence, and c) a score for the current
@@ -78,8 +88,29 @@ def _prune_branches(beam_entries, k):
   return [beam_entries[i] for i in indices]
 
 
+def _prune_branches_probabilistically(beam_entries, k, temperature=1.0):
+  """Randomly select `k` sequences with probabilities based on their scores."""
+  if temperature == 0.0:
+      return _prune_branches(beam_entries, k)
+  if temperature < 0:
+      raise ValueError('Temperature cannot be negative')
+  scores = [beam_entry.score / temperature for beam_entry in beam_entries]
+  all_idx = set(range(len(scores)))
+  indices = []
+  for k_i in range(k):
+      possible_idx = list(all_idx - set(indices))
+      p = softmax([scores[j] for j in possible_idx])
+      samp = np.random.uniform()
+      for idx, p_j in zip(possible_idx, p):
+          if samp <= p_j:
+              indices.append(idx)
+              break
+          samp -= p_j
+  return [beam_entries[i] for i in indices]
+
+
 def beam_search(initial_sequence, initial_state, generate_step_fn, num_steps,
-                beam_size, branch_factor, steps_per_iteration):
+                beam_size, branch_factor, steps_per_iteration, temperature=0.0):
   """Generates a sequence using beam search.
 
   Initially, the beam is filled with `beam_size` copies of the initial sequence.
@@ -112,6 +143,8 @@ def beam_search(initial_sequence, initial_state, generate_step_fn, num_steps,
     beam_size: The integer beam size to use.
     branch_factor: The integer branch factor to use.
     steps_per_iteration: The integer number of steps to take per iteration.
+    temperature: The float temperature for probabilistic sampling. Set to 0
+        (default) to always pick the highest scoring samples.
 
   Returns:
     A tuple containing a) the highest-scoring sequence as computed by the beam
@@ -137,11 +170,13 @@ def beam_search(initial_sequence, initial_state, generate_step_fn, num_steps,
                     first_iteration_num_steps) // steps_per_iteration
 
   for _ in range(num_iterations):
-    beam_entries = _prune_branches(beam_entries, k=beam_size)
+    beam_entries = _prune_branches_probabilistically(
+        beam_entries, k=beam_size, temperature=temperature)
     beam_entries = _generate_branches(
         beam_entries, generate_step_fn, branch_factor, steps_per_iteration)
 
   # Prune to the single best beam entry.
-  beam_entry = _prune_branches(beam_entries, k=1)[0]
+  beam_entry = _prune_branches_probabilistically(
+      beam_entries, k=1, temperature=temperature)[0]
 
   return beam_entry.sequence, beam_entry.state, beam_entry.score

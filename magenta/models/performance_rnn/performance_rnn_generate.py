@@ -98,6 +98,12 @@ tf.app.flags.DEFINE_integer(
 tf.app.flags.DEFINE_integer(
     'steps_per_iteration', 1,
     'The number of steps to take per beam search iteration.')
+tf.app.flags.DEFINE_float(
+    'beam_temperature', 0.0,
+    'The randomness of the beam search selection. 1.0 uses the unaltered '
+    'log-likelihood probabilities, greater than 1.0 makes sampling more '
+    'random, less than 1.0 makes tracks less random. 0.0 deterministically '
+    'selects the top-k (default).')
 tf.app.flags.DEFINE_string(
     'log', 'INFO',
     'The threshold for what messages will be logged DEBUG, INFO, WARN, ERROR, '
@@ -233,6 +239,8 @@ def run_with_flags(generator):
   generator_options.args['temperature'].float_value = FLAGS.temperature
   generator_options.args['beam_size'].int_value = FLAGS.beam_size
   generator_options.args['branch_factor'].int_value = FLAGS.branch_factor
+  generator_options.args[
+      'beam_temperature'].float_value = FLAGS.beam_temperature
   generator_options.args[
       'steps_per_iteration'].int_value = FLAGS.steps_per_iteration
 

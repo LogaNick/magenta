@@ -88,3 +88,74 @@ NOTE_KEYS = [
     [1, 3, 5, 6, 8, 10, 11],
     [0, 2, 4, 6, 7, 9, 11]
 ]
+
+# For control signals:
+
+# Complete set of composers in Yamaha2750
+COMPOSER_SET = ['Agosti', 'Albeniz', 'Babajanian', 'Bach', 'Balakirev', 'Barber', 'Bartholdy', 'Bartok', 'Beethoven', 'Berg', 'Berio', 'Bizet', 'Bowen', 'Brahms', 'Busoni', 'Carter', 'Chopin', 'Clementi', 'Corigliano', 'Coulthard', 'Crumb', 'Cziffra', 'Danielpour', 'Debussy', 'Dutilleux', 'Enescu', 'Eotvos', 'Falla', 'Franck', 'Gao', 'Gershwin', 'Gibbons', 'Ginastera', 'Glinka', 'Godowsky', 'Gounod', 'Grainger', 'Granados', 'Grieg', 'Grunfeld', 'Gubaidulina', 'Hamelin', 'Handel', 'Haydn', 'Hess', 'Hindemith', 'Hirtz', 'Horowitz', 'Jalbert', 'Janacek', 'Kapustin', 'Kreisler', 'Kurtag', 'Kuzmenko', 'Leschetizky', 'Liebermann', 'Ligeti', 'Liszt', 'Louie', 'Lutoslawski', 'Martin', 'McIntyre', 'Medtner', 'Mendelssohn', 'Menotti', 'Messiaen', 'Morel', 'Moszkowski', 'Mozart', 'Mozetich', 'Muczynski', 'Mussorgsky', 'Myaskovsky', 'Nancarrow', 'Pachelbel', 'Paganini', 'Petri', 'Pletnev', 'Poulenc', 'Prokofiev', 'Purcell', 'Rachmaninoff', 'Rameau', 'Ravel', 'Rimsky-Korsakov', 'Rodrigo', 'Rzewski', 'Saint-Saens', 'Scarlatti', 'Schedrin', 'Schnittke', 'Schonberg', 'Schostakovich', 'Schubert', 'Schumann', 'Scriabin', 'Sheng', 'Shostakovich', 'Slonimsky', 'Soler', 'Strauss', 'Stravinsky', 'Szymanowski', 'Takemitsu', 'Taneyev', 'Tchaikovsky', 'Tchaikowsky', 'Verdi', 'Vine', 'Volodos', 'Wagner', 'Weber', 'Yang', 'Zaimont']
+
+# Composer clusters
+COMPOSER_CLUSTER_1 = [
+'Chopin',
+'Liszt',
+'Schubert',
+'Schumann',
+'Brahms',
+'Tchaikovsky',
+'Mendelssohn',
+'Paganini',
+'Busoni',
+'Moszkowski',
+'Bizet',
+'Bartholdy',
+'Balakirev',
+'Tchaikowsky',
+'Strauss',
+'Grieg',
+'Horowitz',
+'Wagner',
+'Saint-Saens']
+
+COMPOSER_CLUSTER_2 = ['Beethoven']
+
+COMPOSER_CLUSTER_3 = [
+'Bach', 
+'Handel', 
+'Purcell']
+
+COMPOSER_CLUSTER_4 = [
+'Prokofiev',
+'Stravinsky',
+'Bartok',
+'Barber',
+'Shostakovich',
+'Ligeti',
+'Myaskovsky',
+'Schnittke',
+'Hindemith',
+'Mussorgsky',
+'Schostakovich',
+'Messiaen',
+'Schonberg']
+
+COMPOSER_CLUSTER_5 = [
+'Ravel',
+'Debussy']
+
+COMPOSER_CLUSTER_6 = [
+'Haydn',
+'Mozart',
+'Scarlatti',
+'Clementi',
+'Pachelbel']
+
+COMPOSER_CLUSTER_7 = [
+'Rachmaninoff', 
+'Scriabin']
+
+COMPOSER_CLUSTER_8 = [
+'Kapustin',
+'Gershwin']
+
+# Create a list of composer clusters
+COMPOSER_CLUSTERS = [COMPOSER_CLUSTER_1, COMPOSER_CLUSTER_2, COMPOSER_CLUSTER_3, COMPOSER_CLUSTER_4, COMPOSER_CLUSTER_5, COMPOSER_CLUSTER_6, COMPOSER_CLUSTER_7, COMPOSER_CLUSTER_8]
