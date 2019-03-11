@@ -639,18 +639,19 @@ class TempoRankHotPerformanceControlSignal(PerformanceControlSignal):
       # weight each of the tempo indicators equally in the vector
       weight = 1.0 / len(tempo_indicators)
 
-      # index of the halfway point (equivalent to the ceiling)
+      # halfway point (equivalent to ceiling when used as index)
       half_way = len(RANKED_TEMPO_KEYWORDS) // 2
 
       for tempo in tempo_indicators:
         tempo_index = RANKED_TEMPO_KEYWORDS.index(tempo)
 
-        i = half_way
-        if tempo_index < half_way:      
+        if tempo_index < half_way:
+          i = half_way - 1      
           while i >= tempo_index:
             vector[i] += weight
             i -= 1
         else:
+          i = half_way
           while i <= tempo_index:
             vector[i] += weight
             i += 1
@@ -787,6 +788,100 @@ class FormWordPerformanceControlSignal(PerformanceControlSignal):
     def class_index_to_event(self, class_index, events):
       raise NotImplementedError
 
+class FormBoostPerformanceControlSignal(PerformanceControlSignal):
+  """Form boost performance control signal."""
+
+  name = 'form_boost_vector'
+  description = "Desired form"
+
+  def __init__(self):
+    """Initializes a FormBoostPerformanceControlSignal.
+
+    Args:
+    """
+    self._encoder = self.FormBoostHistogramEncoder()
+
+  @property
+  def default_value(self):
+    return [0.0] * len(FORM_KEYWORDS)
+
+  def validate(self, value):
+    return (isinstance(value, list) and len(value) == len(FORM_KEYWORDS) and
+            all(isinstance(val, numbers.Number) for val in value))
+
+  @property
+  def encoder(self):
+    return self._encoder
+
+  def extract(self, performance):
+    """Creates form keyword vector at every event in a performance.
+
+    Args:
+      performance: A Performance object for which to create a form vector
+          sequence.
+
+    Returns:
+      A list of form keyword vectors the same length as `performance`.
+    """
+    if not performance.keywords:
+      return [[0.0] * len(FORM_KEYWORDS)] * len(performance)
+
+    #TODO(NicholasBarreyre): see if there is a function for this
+    keyword_list_str = ''
+    for char in performance.keywords:
+      keyword_list_str += char
+    
+    # parse string representation of list as a list
+    keywords = ast.literal_eval(keyword_list_str)
+
+    # Extract keyword associated with tempo
+    form_indicators = []
+    for keyword in keywords:
+      if keyword in FORM_KEYWORDS:
+        form_indicators.append(keyword)
+
+    
+    if len(form_indicators) == 0:
+      vector = [0.0] * len(FORM_KEYWORDS)
+    else: 
+      vector = []
+
+      # weight each of the tempo indicators equally in the vector
+      weight = 1.0 / len(form_indicators)
+      default_weight = 0.0
+
+      for form_indicator in FORM_KEYWORDS:
+        if form_indicator in form_indicators:
+          vector.append(weight)
+        else:
+          vector.append(default_weight)
+    
+    vector_sequence = [vector] * len(performance)
+    return vector_sequence
+
+  class FormBoostHistogramEncoder(encoder_decoder.EventSequenceEncoderDecoder):
+    """An encoder for form word vector sequences."""
+
+    @property
+    def input_size(self):
+      return len(FORM_KEYWORDS)
+
+    @property
+    def num_classes(self):
+      raise NotImplementedError
+
+    @property
+    def default_event_label(self):
+      raise NotImplementedError
+
+    def events_to_input(self, events, position):
+      return events[position]
+
+    def events_to_label(self, events, position):
+      raise NotImplementedError
+
+    def class_index_to_event(self, class_index, events):
+      raise NotImplementedError
 
 class ComposerClusterPerformanceControlSignal(PerformanceControlSignal):
   """Composer cluster histogram performance control signal."""
@@ -1805,5 +1900,6 @@ all_performance_control_signals = [
     TempoWordPerformanceControlSignal,
     FormWordPerformanceControlSignal,
     TempoBoostPerformanceControlSignal,
-    TempoRankHotPerformanceControlSignal
+    TempoRankHotPerformanceControlSignal,
+    FormBoostPerformanceControlSignal
 ]

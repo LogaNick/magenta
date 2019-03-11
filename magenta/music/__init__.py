@@ -108,6 +108,7 @@ from magenta.music.performance_controls import TempoWordPerformanceControlSignal
 from magenta.music.performance_controls import FormWordPerformanceControlSignal
 from magenta.music.performance_controls import TempoBoostPerformanceControlSignal
 from magenta.music.performance_controls import TempoRankHotPerformanceControlSignal
+from magenta.music.performance_controls import FormBoostPerformanceControlSignal
 
 from magenta.music.performance_encoder_decoder import ModuloPerformanceEventSequenceEncoderDecoder
 from magenta.music.performance_encoder_decoder import PerformanceModuloEncoding
