@@ -1,31 +1,32 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2019 The Magenta Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Tests for performance_encoder_decoder."""
 
-from math import cos
-from math import pi
-from math import sin
-
-# internal imports
-
-import tensorflow as tf
+import math
 
 from magenta.music import performance_encoder_decoder
 from magenta.music import performance_lib
 from magenta.music.performance_encoder_decoder import ModuloPerformanceEventSequenceEncoderDecoder
+from magenta.music.performance_encoder_decoder import NotePerformanceEventSequenceEncoderDecoder
 from magenta.music.performance_encoder_decoder import PerformanceModuloEncoding
 from magenta.music.performance_lib import PerformanceEvent
+import tensorflow as tf
+
+cos = math.cos
+sin = math.sin
+pi = math.pi
 
 
 class PerformanceOneHotEncodingTest(tf.test.TestCase):
@@ -108,7 +109,7 @@ class PerformanceModuloEncodingTest(tf.test.TestCase):
                                    performance_lib.MIN_MIDI_PITCH + 1) * 2)
 
   def testInputSize(self):
-    self.assertEquals(self._expected_input_size, self.enc.input_size)
+    self.assertEqual(self._expected_input_size, self.enc.input_size)
 
   def testEmbedPitchClass(self):
     # The following are true only for semitone_steps = 1.
@@ -258,14 +259,14 @@ class ModuloPerformanceEventSequenceEncoderTest(tf.test.TestCase):
                                        performance_lib.MIN_MIDI_PITCH + 1))
 
   def testInputSize(self):
-    self.assertEquals(self._expected_input_size, self.enc.input_size)
+    self.assertEqual(self._expected_input_size, self.enc.input_size)
 
   def testNumClasses(self):
     self.assertEqual(self._expected_num_classes, self.enc.num_classes)
 
   def testDefaultEventLabel(self):
     label = self._expected_num_classes - self._num_velocity_bins - 1
-    self.assertEquals(label, self.enc.default_event_label)
+    self.assertEqual(label, self.enc.default_event_label)
 
   def testEventsToInput(self):
     num_shift_bins = self._max_shift_steps
@@ -342,6 +343,55 @@ class ModuloPerformanceEventSequenceEncoderTest(tf.test.TestCase):
       for i in range(self._expected_input_size):
         self.assertAlmostEqual(expected_encoded_modulo_event[i],
                                actual_encoded_modulo_event[i])
+
+
+class NotePerformanceEventSequenceEncoderDecoderTest(tf.test.TestCase):
+
+  def setUp(self):
+    self.enc = NotePerformanceEventSequenceEncoderDecoder(
+        num_velocity_bins=16, max_shift_steps=99, max_duration_steps=500)
+
+    self.assertEqual(10, self.enc.shift_steps_segments)
+    self.assertEqual(20, self.enc.duration_steps_segments)
+
+  def testEncodeDecode(self):
+    pe = PerformanceEvent
+    performance = [
+        (pe(pe.TIME_SHIFT, 0), pe(pe.NOTE_ON, 60),
+         pe(pe.VELOCITY, 13), pe(pe.DURATION, 401)),
+        (pe(pe.TIME_SHIFT, 55), pe(pe.NOTE_ON, 64),
+         pe(pe.VELOCITY, 13), pe(pe.DURATION, 310)),
+        (pe(pe.TIME_SHIFT, 99), pe(pe.NOTE_ON, 67),
+         pe(pe.VELOCITY, 16), pe(pe.DURATION, 100)),
+        (pe(pe.TIME_SHIFT, 0), pe(pe.NOTE_ON, 67),
+         pe(pe.VELOCITY, 16), pe(pe.DURATION, 1)),
+        (pe(pe.TIME_SHIFT, 0), pe(pe.NOTE_ON, 67),
+         pe(pe.VELOCITY, 16), pe(pe.DURATION, 500)),
+    ]
+
+    labels = [self.enc.events_to_label(performance, i)
+              for i in range(len(performance))]
+
+    expected_labels = [
+        (0, 0, 60, 12, 16, 0),
+        (5, 5, 64, 12, 12, 9),
+        (9, 9, 67, 15, 3, 24),
+        (0, 0, 67, 15, 0, 0),
+        (0, 0, 67, 15, 19, 24),
+    ]
+
+    self.assertEqual(expected_labels, labels)
+
+    inputs = [self.enc.events_to_input(performance, i)
+              for i in range(len(performance))]
+
+    for input_ in inputs:
+      self.assertEqual(6, input_.nonzero()[0].shape[0])
+
+    decoded_performance = [self.enc.class_index_to_event(label, None)
+                           for label in labels]
+
+    self.assertEqual(performance, decoded_performance)
 
 
 if __name__ == '__main__':

@@ -1,33 +1,30 @@
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2019 The Magenta Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Event sequence RNN model."""
 
 import collections
 import copy
 import functools
 
-# internal imports
-
-import numpy as np
-from six.moves import range  # pylint: disable=redefined-builtin
-import tensorflow as tf
-
 from magenta.common import beam_search
 from magenta.common import state_util
 from magenta.models.shared import events_rnn_graph
 import magenta.music as mm
-
+import numpy as np
+from six.moves import range  # pylint: disable=redefined-builtin
+import tensorflow as tf
 
 # Model state when generating event sequences, consisting of the next inputs to
 # feed the model, the current RNN state, the current control sequence (if
@@ -36,7 +33,7 @@ ModelState = collections.namedtuple(
     'ModelState', ['inputs', 'rnn_state', 'control_events', 'control_state'])
 
 
-class EventSequenceRnnModelException(Exception):
+class EventSequenceRnnModelError(Exception):
   pass
 
 
@@ -128,18 +125,37 @@ class EventSequenceRnnModel(mm.BaseModel):
     final_state, softmax = self._session.run(
         [graph_final_state, graph_softmax], feed_dict)
 
-    if softmax.shape[1] > 1:
-      # The inputs batch is longer than a single step, so we also want to
-      # compute the log-likelihood of the event sequences up until the step
-      # we're generating.
-      loglik = self._config.encoder_decoder.evaluate_log_likelihood(
-          event_sequences, softmax[:, :-1, :])
+    if isinstance(softmax, list):
+      if softmax[0].shape[1] > 1:
+        softmaxes = []
+        for beam in range(softmax[0].shape[0]):
+          beam_softmaxes = []
+          for event in range(softmax[0].shape[1] - 1):
+            beam_softmaxes.append(
+                [softmax[s][beam, event] for s in range(len(softmax))])
+          softmaxes.append(beam_softmaxes)
+        loglik = self._config.encoder_decoder.evaluate_log_likelihood(
+            event_sequences, softmaxes)
+      else:
+        loglik = np.zeros(len(event_sequences))
     else:
-      loglik = np.zeros(len(event_sequences))
+      if softmax.shape[1] > 1:
+        # The inputs batch is longer than a single step, so we also want to
+        # compute the log-likelihood of the event sequences up until the step
+        # we're generating.
+        loglik = self._config.encoder_decoder.evaluate_log_likelihood(
+            event_sequences, softmax[:, :-1, :])
+      else:
+        loglik = np.zeros(len(event_sequences))
 
-    indices = self._config.encoder_decoder.extend_event_sequences(
-        event_sequences, softmax)
-    p = softmax[range(len(event_sequences)), -1, indices]
+    indices = np.array(self._config.encoder_decoder.extend_event_sequences(
+        event_sequences, softmax))
+    if isinstance(softmax, list):
+      p = 1.0
+      for i in range(len(softmax)):
+        p *= softmax[i][range(len(event_sequences)), -1, indices[:, i]]
+    else:
+      p = softmax[range(len(event_sequences)), -1, indices]
 
     return final_state, loglik + np.log(p)
 
@@ -290,25 +306,25 @@ class EventSequenceRnnModel(mm.BaseModel):
       The generated event sequence (which begins with the provided primer).
 
     Raises:
-      EventSequenceRnnModelException: If the primer sequence has zero length or
+      EventSequenceRnnModelError: If the primer sequence has zero length or
           is not shorter than num_steps.
     """
     if (control_events is not None and
         not isinstance(self._config.encoder_decoder,
                        mm.ConditionalEventSequenceEncoderDecoder)):
-      raise EventSequenceRnnModelException(
+      raise EventSequenceRnnModelError(
           'control sequence provided but encoder/decoder is not a '
           'ConditionalEventSequenceEncoderDecoder')
     if control_events is not None and extend_control_events_callback is None:
-      raise EventSequenceRnnModelException(
+      raise EventSequenceRnnModelError(
           'must provide callback for extending control sequence (or use'
           'default)')
 
     if not primer_events:
-      raise EventSequenceRnnModelException(
+      raise EventSequenceRnnModelError(
           'primer sequence must have non-zero length')
     if len(primer_events) >= num_steps:
-      raise EventSequenceRnnModelException(
+      raise EventSequenceRnnModelError(
           'primer sequence must be shorter than `num_steps`')
 
     if len(primer_events) >= num_steps:
@@ -344,17 +360,17 @@ class EventSequenceRnnModel(mm.BaseModel):
         inputs=inputs[0], rnn_state=initial_states[0],
         control_events=control_events, control_state=control_state)
 
+    generate_step_fn = functools.partial(
+        self._generate_step,
+        temperature=temperature,
+        extend_control_events_callback=
+        extend_control_events_callback if control_events is not None else None,
+        modify_events_callback=modify_events_callback)
+
     events, _, loglik = beam_search(
         initial_sequence=event_sequences[0],
         initial_state=initial_state,
-        generate_step_fn=functools.partial(
-            self._generate_step,
-            temperature=temperature,
-            extend_control_events_callback=(
-                extend_control_events_callback
-                if control_events is not None
-                else None),
-            modify_events_callback=modify_events_callback),
+        generate_step_fn=generate_step_fn,
         num_steps=num_steps - len(primer_events),
         beam_size=beam_size,
         branch_factor=branch_factor,
@@ -413,18 +429,18 @@ class EventSequenceRnnModel(mm.BaseModel):
       The log likelihood of each sequence in `event_sequences`.
 
     Raises:
-      EventSequenceRnnModelException: If the event sequences are not all the
+      EventSequenceRnnModelError: If the event sequences are not all the
           same length, or if the control sequence is shorter than the event
           sequences.
     """
     num_steps = len(event_sequences[0])
     for events in event_sequences[1:]:
       if len(events) != num_steps:
-        raise EventSequenceRnnModelException(
+        raise EventSequenceRnnModelError(
             'log likelihood evaluation requires all event sequences to have '
             'the same length')
     if control_events is not None and len(control_events) < num_steps:
-      raise EventSequenceRnnModelException(
+      raise EventSequenceRnnModelError(
           'control sequence must be at least as long as the event sequences')
 
     batch_size = self._batch_size()
@@ -486,7 +502,8 @@ class EventSequenceRnnConfig(object):
     details: The GeneratorDetails message describing the config.
     encoder_decoder: The EventSequenceEncoderDecoder or
         ConditionalEventSequenceEncoderDecoder object to use.
-    hparams: The HParams containing hyperparameters to use.
+    hparams: The HParams containing hyperparameters to use. Will be merged with
+        default hyperparameter values.
     steps_per_quarter: The integer number of quantized time steps per quarter
         note to use.
     steps_per_second: The integer number of quantized time steps per second to
@@ -495,8 +512,20 @@ class EventSequenceRnnConfig(object):
 
   def __init__(self, details, encoder_decoder, hparams,
                steps_per_quarter=4, steps_per_second=100):
+    hparams_dict = {
+        'batch_size': 64,
+        'rnn_layer_sizes': [128, 128],
+        'dropout_keep_prob': 1.0,
+        'attn_length': 0,
+        'clip_norm': 3,
+        'learning_rate': 0.001,
+        'residual_connections': False,
+        'use_cudnn': False
+    }
+    hparams_dict.update(hparams.values())
+
     self.details = details
     self.encoder_decoder = encoder_decoder
-    self.hparams = hparams
+    self.hparams = tf.contrib.training.HParams(**hparams_dict)
     self.steps_per_quarter = steps_per_quarter
     self.steps_per_second = steps_per_second

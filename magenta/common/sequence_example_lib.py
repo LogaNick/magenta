@@ -1,19 +1,22 @@
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2019 The Magenta Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Utility functions for working with tf.train.SequenceExamples."""
 
 import math
+import numbers
+
 import tensorflow as tf
 
 QUEUE_CAPACITY = 500
@@ -33,9 +36,12 @@ def make_sequence_example(inputs, labels):
   input_features = [
       tf.train.Feature(float_list=tf.train.FloatList(value=input_))
       for input_ in inputs]
-  label_features = [
-      tf.train.Feature(int64_list=tf.train.Int64List(value=[label]))
-      for label in labels]
+  label_features = []
+  for label in labels:
+    if isinstance(label, numbers.Number):
+      label = [label]
+    label_features.append(
+        tf.train.Feature(int64_list=tf.train.Int64List(value=label)))
   feature_list = {
       'inputs': tf.train.FeatureList(feature=input_features),
       'labels': tf.train.FeatureList(feature=label_features)
@@ -60,7 +66,7 @@ def _shuffle_inputs(input_tensors, capacity, min_after_dequeue, num_threads):
   return output_tensors
 
 
-def get_padded_batch(file_list, batch_size, input_size,
+def get_padded_batch(file_list, batch_size, input_size, label_shape=None,
                      num_enqueuing_threads=4, shuffle=False):
   """Reads batches of SequenceExamples from TFRecords and pads them.
 
@@ -72,6 +78,7 @@ def get_padded_batch(file_list, batch_size, input_size,
     batch_size: The number of SequenceExamples to include in each batch.
     input_size: The size of each input vector. The returned batch of inputs
         will have a shape [batch_size, num_steps, input_size].
+    label_shape: Shape for labels. If not specified, will use [].
     num_enqueuing_threads: The number of threads to use for enqueuing
         SequenceExamples.
     shuffle: Whether to shuffle the batches.
@@ -91,7 +98,7 @@ def get_padded_batch(file_list, batch_size, input_size,
   sequence_features = {
       'inputs': tf.FixedLenSequenceFeature(shape=[input_size],
                                            dtype=tf.float32),
-      'labels': tf.FixedLenSequenceFeature(shape=[],
+      'labels': tf.FixedLenSequenceFeature(shape=label_shape or [],
                                            dtype=tf.int64)}
 
   _, sequence = tf.parse_single_sequence_example(

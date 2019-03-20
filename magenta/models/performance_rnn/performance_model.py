@@ -1,29 +1,26 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2019 The Magenta Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Performance RNN model."""
 
 import collections
 import functools
 
-# internal imports
-
-import tensorflow as tf
 import magenta
-
 from magenta.models.shared import events_rnn_model
 from magenta.music.performance_lib import PerformanceEvent
-
+import tensorflow as tf
 
 # State for constructing a time-varying control sequence. Keeps track of the
 # current event position and time step in the generated performance, to allow
@@ -168,7 +165,8 @@ class PerformanceRnnConfig(events_rnn_model.EventSequenceRnnConfig):
   """
 
   def __init__(self, details, encoder_decoder, hparams, num_velocity_bins=0,
-               control_signals=None, optional_conditioning=False):
+               control_signals=None, optional_conditioning=False,
+               note_performance=False):
     if control_signals is not None:
       control_encoder = magenta.music.MultipleEventSequenceEncoder(
           [control.encoder for control in control_signals])
@@ -183,6 +181,7 @@ class PerformanceRnnConfig(events_rnn_model.EventSequenceRnnConfig):
     self.num_velocity_bins = num_velocity_bins
     self.control_signals = control_signals
     self.optional_conditioning = optional_conditioning
+    self.note_performance = note_performance
 
 
 default_configs = {
@@ -214,6 +213,21 @@ default_configs = {
             learning_rate=0.001),
         num_velocity_bins=32),
 
+    'performance_with_dynamics_compact': PerformanceRnnConfig(
+        magenta.protobuf.generator_pb2.GeneratorDetails(
+            id='performance_with_dynamics',
+            description='Performance RNN with dynamics (compact input)'),
+        magenta.music.OneHotIndexEventSequenceEncoderDecoder(
+            magenta.music.PerformanceOneHotEncoding(
+                num_velocity_bins=32)),
+        tf.contrib.training.HParams(
+            batch_size=64,
+            rnn_layer_sizes=[512, 512, 512],
+            dropout_keep_prob=1.0,
+            clip_norm=3,
+            learning_rate=0.001),
+        num_velocity_bins=32),
+
     'performance_with_dynamics_and_modulo_encoding': PerformanceRnnConfig(
         magenta.protobuf.generator_pb2.GeneratorDetails(
             id='performance_with_dynamics_and_modulo_encoding',
@@ -227,6 +241,21 @@ default_configs = {
             clip_norm=3,
             learning_rate=0.001),
         num_velocity_bins=32),
+
+    'performance_with_dynamics_and_note_encoding': PerformanceRnnConfig(
+        magenta.protobuf.generator_pb2.GeneratorDetails(
+            id='performance_with_dynamics_and_note_encoding',
+            description='Performance RNN with dynamics and note encoding'),
+        magenta.music.NotePerformanceEventSequenceEncoderDecoder(
+            num_velocity_bins=32),
+        tf.contrib.training.HParams(
+            batch_size=64,
+            rnn_layer_sizes=[512, 512, 512],
+            dropout_keep_prob=1.0,
+            clip_norm=3,
+            learning_rate=0.001),
+        num_velocity_bins=32,
+        note_performance=True),
 
     'density_conditioned_performance_with_dynamics': PerformanceRnnConfig(
         magenta.protobuf.generator_pb2.GeneratorDetails(

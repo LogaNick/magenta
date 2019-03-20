@@ -1,31 +1,30 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2019 The Magenta Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for performance_lib."""
 
-# internal imports
-import tensorflow as tf
+"""Tests for performance_lib."""
 
 from magenta.music import performance_lib
 from magenta.music import sequences_lib
 from magenta.music import testing_lib
 from magenta.protobuf import music_pb2
+import tensorflow as tf
 
 
 class PerformanceLibTest(tf.test.TestCase):
 
   def setUp(self):
-    self.maxDiff = None
+    self.maxDiff = None  # pylint:disable=invalid-name
 
     self.note_sequence = music_pb2.NoteSequence()
     self.note_sequence.ticks_per_quarter = 220
@@ -132,6 +131,29 @@ class PerformanceLibTest(tf.test.TestCase):
         pe(pe.NOTE_OFF, 60),
     ]
     self.assertEqual(expected_performance, list(performance))
+
+  def testNotePerformanceFromQuantizedNoteSequence(self):
+    testing_lib.add_track_to_sequence(
+        self.note_sequence, 0,
+        [(60, 97, 0.0, 4.0), (64, 97, 0.0, 3.0), (67, 121, 1.0, 2.0)])
+    quantized_sequence = sequences_lib.quantize_note_sequence_absolute(
+        self.note_sequence, steps_per_second=100)
+    performance = performance_lib.NotePerformance(
+        quantized_sequence, num_velocity_bins=16)
+
+    pe = performance_lib.PerformanceEvent
+    expected_performance = [
+        (pe(pe.TIME_SHIFT, 0), pe(pe.NOTE_ON, 60),
+         pe(pe.VELOCITY, 13), pe(pe.DURATION, 400)),
+        (pe(pe.TIME_SHIFT, 0), pe(pe.NOTE_ON, 64),
+         pe(pe.VELOCITY, 13), pe(pe.DURATION, 300)),
+        (pe(pe.TIME_SHIFT, 100), pe(pe.NOTE_ON, 67),
+         pe(pe.VELOCITY, 16), pe(pe.DURATION, 100)),
+    ]
+    self.assertEqual(expected_performance, list(performance))
+
+    ns = performance.to_sequence(instrument=0)
+    self.assertEqual(self.note_sequence, ns)
 
   def testProgramAndIsDrumFromQuantizedNoteSequence(self):
     testing_lib.add_track_to_sequence(

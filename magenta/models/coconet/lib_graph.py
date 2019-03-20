@@ -1,13 +1,28 @@
+# Copyright 2019 The Magenta Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Defines the graph for a convolutional net designed for music autofill."""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from collections import OrderedDict
+
+import collections
 import os
-# internal imports
-import tensorflow as tf
+
 from magenta.models.coconet import lib_hparams
 from magenta.models.coconet import lib_tfutil
+import tensorflow as tf
 
 
 class CoconetGraph(object):
@@ -28,7 +43,7 @@ class CoconetGraph(object):
     self._direct_inputs = direct_inputs
     self._use_placeholders = use_placeholders
     self.hiddens = []
-    self.popstats_by_batchstat = OrderedDict()
+    self.popstats_by_batchstat = collections.OrderedDict()
     self.build()
 
   @property
@@ -97,7 +112,7 @@ class CoconetGraph(object):
     self.setup_optimizer()
 
     for var in tf.trainable_variables():
-      tf.logging.info('%s_%r' % (var.name, var.get_shape().as_list()))
+      tf.logging.info('%s_%r', var.name, var.get_shape().as_list())
 
   def get_convnet_input(self):
     """Returns concatenates masked out pianorolls with their masks."""
@@ -133,8 +148,9 @@ class CoconetGraph(object):
     self.train_op = self.optimizer.minimize(self.loss)
 
   def compute_predictions(self, logits):
-    return (tf.nn.softmax(logits, dim=2)
-            if self.hparams.use_softmax_loss else tf.nn.sigmoid(logits))
+    if self.hparams.use_softmax_loss:
+      return tf.nn.softmax(logits, dim=2)
+    return tf.nn.sigmoid(logits)
 
   def compute_cross_entropy(self, logits, labels):
     if self.hparams.use_softmax_loss:
@@ -244,6 +260,9 @@ class CoconetGraph(object):
     regular_convs = (not self.hparams.use_sep_conv or
                      layer_idx < self.hparams.num_initial_regular_conv_layers)
     if regular_convs:
+      dilation_rates = layer.get('dilation_rate', 1)
+      if isinstance(dilation_rates, int):
+        dilation_rates = [dilation_rates] * 2
       weights = tf.get_variable(
           'weights',
           filter_shape,
@@ -253,17 +272,34 @@ class CoconetGraph(object):
           x,
           weights,
           strides=[1, stride, stride, 1],
-          padding=layer.get('conv_pad', 'SAME'))
+          padding=layer.get('conv_pad', 'SAME'),
+          dilations=[1] + dilation_rates + [1])
     else:
+      num_outputs = filter_shape[-1]
+      num_splits = layer.get('num_pointwise_splits', 1)
+      tf.logging.info('num_splits %d', num_splits)
+      if num_splits > 1:
+        num_outputs = None
       conv = tf.contrib.layers.separable_conv2d(
           x,
-          filter_shape[-1],
+          num_outputs,
           filter_shape[:2],
           depth_multiplier=self.hparams.sep_conv_depth_multiplier,
           stride=layer.get('conv_stride', 1),
           padding=layer.get('conv_pad', 'SAME'),
+          rate=layer.get('dilation_rate', 1),
           activation_fn=None,
           weights_initializer=initializer if self.is_training else None)
+      if num_splits > 1:
+        splits = tf.split(conv, num_splits, -1)
+        print(len(splits), splits[0].shape)
+        # TODO(annahuang): support non equal splits.
+        pointwise_splits = [
+            tf.layers.dense(splits[i], filter_shape[3]/num_splits,
+                            name='split_%d_%d' % (layer_idx, i))
+            for i in range(num_splits)]
+        conv = tf.concat((pointwise_splits), axis=-1)
+
     # Compute batch normalization or add biases.
     if self.hparams.batch_norm:
       y = self.apply_batchnorm(conv)

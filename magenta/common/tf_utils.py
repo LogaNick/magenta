@@ -1,10 +1,10 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2019 The Magenta Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,8 +13,6 @@
 # limitations under the License.
 
 """Tensorflow-related utilities."""
-
-# internal imports
 
 import tensorflow as tf
 
@@ -60,7 +58,7 @@ def log_loss(labels, predictions, epsilon=1e-7, scope=None, weights=None):
   Raises:
     ValueError: If the shape of `predictions` doesn't match that of `labels`.
   """
-  with tf.name_scope(scope, "log_loss", (predictions, labels)) as scope:
+  with tf.name_scope(scope, "log_loss", (predictions, labels)):
     predictions = tf.to_float(predictions)
     labels = tf.to_float(labels)
     predictions.get_shape().assert_is_compatible_with(labels.get_shape())

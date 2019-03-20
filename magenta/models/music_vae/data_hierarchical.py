@@ -1,16 +1,17 @@
-# Copyright 2018 Google Inc. All Rights Reserved.
+# Copyright 2019 The Magenta Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """MusicVAE data library for hierarchical converters."""
 
 from __future__ import absolute_import
@@ -19,17 +20,13 @@ from __future__ import print_function
 
 import abc
 
-# internal imports
-import numpy as np
-
 from magenta.models.music_vae import data
 import magenta.music as mm
-
 from magenta.music import chords_lib
 from magenta.music import performance_lib
 from magenta.music import sequences_lib
 from magenta.protobuf import music_pb2
-
+import numpy as np
 from tensorflow.python.util import nest
 
 CHORD_SYMBOL = music_pb2.NoteSequence.TextAnnotation.CHORD_SYMBOL
@@ -265,8 +262,10 @@ class BaseHierarchicalConverter(data.BaseConverter):
       except TooLongError:
         continue
 
-    return (data.ConverterTensors(*zip(*padded_results))
-            if padded_results else data.ConverterTensors())
+    if padded_results:
+      return data.ConverterTensors(*zip(*padded_results))
+    else:
+      return data.ConverterTensors()
 
   def to_items(self, samples, controls=None):
     """Removes hierarchical padding and then converts samples into items."""
@@ -405,14 +404,16 @@ class MultiInstrumentPerformanceConverter(
                max_num_instruments=8,
                min_total_events=8,
                max_events_per_instrument=64,
+               min_pitch=performance_lib.MIN_MIDI_PITCH,
+               max_pitch=performance_lib.MAX_MIDI_PITCH,
                first_subsequence_only=False,
                chord_encoding=None):
     max_shift_steps = (performance_lib.DEFAULT_MAX_SHIFT_QUARTERS *
                        steps_per_quarter)
 
     self._performance_encoding = mm.PerformanceOneHotEncoding(
-        num_velocity_bins=num_velocity_bins,
-        max_shift_steps=max_shift_steps)
+        num_velocity_bins=num_velocity_bins, max_shift_steps=max_shift_steps,
+        min_pitch=min_pitch, max_pitch=max_pitch)
     self._chord_encoding = chord_encoding
 
     self._num_velocity_bins = num_velocity_bins
@@ -424,6 +425,8 @@ class MultiInstrumentPerformanceConverter(
     self._max_num_instruments = max_num_instruments
     self._min_total_events = min_total_events
     self._max_events_per_instrument = max_events_per_instrument
+    self._min_pitch = min_pitch
+    self._max_pitch = max_pitch
     self._first_subsequence_only = first_subsequence_only
 
     self._max_num_chunks = hop_size_bars // chunk_size_bars
@@ -438,10 +441,12 @@ class MultiInstrumentPerformanceConverter(
 
     max_lengths = [
         self._max_num_chunks, max_num_instruments, max_events_per_instrument]
-    control_depth = (chord_encoding.num_classes
-                     if chord_encoding is not None else 0)
-    control_pad_token = (chord_encoding.encode_event(mm.NO_CHORD)
-                         if chord_encoding is not None else None)
+    if chord_encoding is None:
+      control_depth = 0
+      control_pad_token = None
+    else:
+      control_depth = chord_encoding.num_classes
+      control_pad_token = chord_encoding.encode_event(mm.NO_CHORD)
 
     super(MultiInstrumentPerformanceConverter, self).__init__(
         input_depth=depth,
@@ -456,6 +461,11 @@ class MultiInstrumentPerformanceConverter(
         max_tensors_per_notesequence=max_tensors_per_notesequence)
 
   def _quantized_subsequence_to_tensors(self, quantized_subsequence):
+    # Reject sequences with out-of-range pitches.
+    if any(note.pitch < self._min_pitch or note.pitch > self._max_pitch
+           for note in quantized_subsequence.notes):
+      return [], []
+
     # Extract all instruments.
     tracks, _ = mm.extract_performances(
         quantized_subsequence,
@@ -482,10 +492,11 @@ class MultiInstrumentPerformanceConverter(
 
       # Split this track into chunks.
       def new_performance(quantized_sequence, start_step, track=track):
+        steps_per_quarter = (
+            self._steps_per_quarter if quantized_sequence is None else None)
         return performance_lib.MetricPerformance(
             quantized_sequence=quantized_sequence,
-            steps_per_quarter=(self._steps_per_quarter
-                               if quantized_sequence is None else None),
+            steps_per_quarter=steps_per_quarter,
             start_step=start_step,
             num_velocity_bins=self._num_velocity_bins,
             program=track.program, is_drum=track.is_drum)
@@ -543,7 +554,7 @@ class MultiInstrumentPerformanceConverter(
         try:
           track_chords = chords_lib.event_list_chords(
               quantized_subsequence, chunk_tracks)
-        except chords_lib.CoincidentChordsException:
+        except chords_lib.CoincidentChordsError:
           return [], []
 
         track_chord_tensors = []
@@ -566,7 +577,7 @@ class MultiInstrumentPerformanceConverter(
                 track_chord_tokens, self.control_depth, self.control_dtype)
             track_chord_tensors.append(encoded_track_chords)
 
-        except (mm.ChordSymbolException, mm.ChordEncodingException):
+        except (mm.ChordSymbolError, mm.ChordEncodingError):
           return [], []
 
         chunk_chord_tensors.append(track_chord_tensors)
@@ -594,8 +605,8 @@ class MultiInstrumentPerformanceConverter(
         # Infer chords in quantized sequence.
         mm.infer_chords_for_sequence(quantized_sequence)
 
-      except (mm.BadTimeSignatureException, mm.NonIntegerStepsPerBarException,
-              mm.NegativeTimeException, mm.ChordInferenceException):
+      except (mm.BadTimeSignatureError, mm.NonIntegerStepsPerBarError,
+              mm.NegativeTimeError, mm.ChordInferenceError):
         return data.ConverterTensors()
 
       # Copy inferred chords back to original sequence.
@@ -606,9 +617,10 @@ class MultiInstrumentPerformanceConverter(
           ta.time = qta.time
           ta.text = qta.text
 
-    quarters_per_minute = (
-        note_sequence.tempos[0].qpm if note_sequence.tempos
-        else mm.DEFAULT_QUARTERS_PER_MINUTE)
+    if note_sequence.tempos:
+      quarters_per_minute = note_sequence.tempos[0].qpm
+    else:
+      quarters_per_minute = mm.DEFAULT_QUARTERS_PER_MINUTE
     quarters_per_bar = self._steps_per_bar / self._steps_per_quarter
     hop_size_quarters = quarters_per_bar * self._hop_size_bars
     hop_size_seconds = 60.0 * hop_size_quarters / quarters_per_minute
@@ -631,8 +643,8 @@ class MultiInstrumentPerformanceConverter(
         if (mm.steps_per_bar_in_quantized_sequence(quantized_subsequence) !=
             self._steps_per_bar):
           return data.ConverterTensors()
-      except (mm.BadTimeSignatureException, mm.NonIntegerStepsPerBarException,
-              mm.NegativeTimeException):
+      except (mm.BadTimeSignatureError, mm.NonIntegerStepsPerBarError,
+              mm.NegativeTimeError):
         return data.ConverterTensors()
 
       # Convert the quantized subsequence to tensors.
